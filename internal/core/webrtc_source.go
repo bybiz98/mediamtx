@@ -153,8 +153,10 @@ func (s *webRTCSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf
 
 	defer s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
 
+	timeDecoder := newRTSPTimeDecoder()
+
 	for _, track := range tracks {
-		track.start(rres.stream)
+		track.start(rres.stream, timeDecoder)
 	}
 
 	select {

@@ -85,9 +85,9 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitAV1{
 							BaseUnit: formatprocessor.BaseUnit{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS: pts,
-							TU:  tu,
+							TU: tu,
 						})
 					})
 
@@ -101,8 +101,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitVP9{
 							BaseUnit: formatprocessor.BaseUnit{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS:   pts,
 							Frame: frame,
 						})
 					})
@@ -122,9 +122,9 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
 							BaseUnit: formatprocessor.BaseUnit{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS: pts,
-							AU:  au,
+							AU: au,
 						})
 					})
 
@@ -143,9 +143,9 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
 							BaseUnit: formatprocessor.BaseUnit{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS: pts,
-							AU:  au,
+							AU: au,
 						})
 					})
 
@@ -165,8 +165,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 							BaseUnit: formatprocessor.BaseUnit{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS: pts,
 							AUs: aus,
 						})
 					})
@@ -184,8 +184,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 							BaseUnit: formatprocessor.BaseUnit{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS:     pts,
 							Packets: packets,
 						})
 					})

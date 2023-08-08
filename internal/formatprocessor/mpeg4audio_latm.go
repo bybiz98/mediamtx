@@ -14,8 +14,7 @@ import (
 // UnitMPEG4AudioLATM is a MPEG-4 Audio data unit.
 type UnitMPEG4AudioLATM struct {
 	BaseUnit
-	PTS time.Duration
-	AU  []byte
+	AU []byte
 }
 
 type formatProcessorMPEG4AudioLATM struct {
@@ -79,7 +78,7 @@ func (t *formatProcessorMPEG4AudioLATM) Process(unit Unit, hasNonRTSPReaders boo
 				}
 			}
 
-			au, pts, err := t.decoder.Decode(pkt)
+			au, _, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtpmpeg4audiolatm.ErrMorePacketsNeeded {
 					return nil
@@ -88,7 +87,6 @@ func (t *formatProcessorMPEG4AudioLATM) Process(unit Unit, hasNonRTSPReaders boo
 			}
 
 			tunit.AU = au
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -96,20 +94,22 @@ func (t *formatProcessorMPEG4AudioLATM) Process(unit Unit, hasNonRTSPReaders boo
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.AU, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.AU, 0)
 	if err != nil {
 		return err
 	}
+	setTimestamp(pkts, tunit.RTPPackets, t.format.ClockRate(), tunit.PTS)
 	tunit.RTPPackets = pkts
 
 	return nil
 }
 
-func (t *formatProcessorMPEG4AudioLATM) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+func (t *formatProcessorMPEG4AudioLATM) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &UnitMPEG4AudioLATM{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

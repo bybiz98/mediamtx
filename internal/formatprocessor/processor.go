@@ -10,13 +10,33 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
+// avoid an int64 overflow and preserve resolution by splitting division into two parts:
+// first add the integer part, then the decimal part.
+func multiplyAndDivide(v, m, d time.Duration) time.Duration {
+	secs := v / d
+	dec := v % d
+	return (secs*m + dec*m/d)
+}
+
+func setTimestamp(newPackets []*rtp.Packet, oldPackets []*rtp.Packet, clockRate int, pts time.Duration) {
+	if oldPackets != nil {
+		for _, pkt := range newPackets {
+			pkt.Timestamp = oldPackets[0].Timestamp
+		}
+	} else {
+		for _, pkt := range newPackets {
+			pkt.Timestamp = uint32(multiplyAndDivide(pts, time.Duration(clockRate), time.Second))
+		}
+	}
+}
+
 // Processor cleans and normalizes streams.
 type Processor interface {
 	// cleans and normalizes a data unit.
 	Process(Unit, bool) error
 
 	// wraps a RTP packet into a Unit.
-	UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit
+	UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit
 }
 
 // New allocates a Processor.

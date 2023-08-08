@@ -318,6 +318,7 @@ func (s *rtspSession) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Res
 	}
 
 	s.stream = res.stream
+	timeDec := newRTSPTimeDecoder()
 
 	for _, medi := range s.session.AnnouncedMedias() {
 		for _, forma := range medi.Formats {
@@ -325,7 +326,15 @@ func (s *rtspSession) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Res
 			cforma := forma
 
 			s.session.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-				res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now())
+				pts, ok := timeDec.decode(
+					cforma,
+					cforma.ClockRate(),
+					cforma.PTSEqualsDTS(pkt),
+					pkt)
+				if !ok {
+					return
+				}
+				res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
 			})
 		}
 	}

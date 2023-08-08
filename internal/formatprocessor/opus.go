@@ -15,7 +15,6 @@ import (
 // UnitOpus is a Opus data unit.
 type UnitOpus struct {
 	BaseUnit
-	PTS     time.Duration
 	Packets [][]byte
 }
 
@@ -81,13 +80,12 @@ func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error {
 				}
 			}
 
-			packet, pts, err := t.decoder.Decode(pkt)
+			packet, _, err := t.decoder.Decode(pkt)
 			if err != nil {
 				return err
 			}
 
 			tunit.Packets = [][]byte{packet}
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -98,24 +96,26 @@ func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error {
 	var rtpPackets []*rtp.Packet //nolint:prealloc
 	pts := tunit.PTS
 	for _, packet := range tunit.Packets {
-		pkt, err := t.encoder.Encode(packet, pts)
+		pkt, err := t.encoder.Encode(packet, 0)
 		if err != nil {
 			return err
 		}
-
+		setTimestamp([]*rtp.Packet{pkt}, tunit.RTPPackets, t.format.ClockRate(), pts)
 		rtpPackets = append(rtpPackets, pkt)
 		pts += opus.PacketDuration(packet)
 	}
+
 	tunit.RTPPackets = rtpPackets
 
 	return nil
 }
 
-func (t *formatProcessorOpus) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+func (t *formatProcessorOpus) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &UnitOpus{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

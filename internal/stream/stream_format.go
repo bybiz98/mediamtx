@@ -76,6 +76,12 @@ func (sf *streamFormat) writeUnit(s *Stream, medi *media.Media, data formatproce
 	}
 }
 
-func (sf *streamFormat) writeRTPPacket(s *Stream, medi *media.Media, pkt *rtp.Packet, ntp time.Time) {
-	sf.writeUnit(s, medi, sf.proc.UnitForRTPPacket(pkt, ntp))
+func (sf *streamFormat) writeRTPPacket(
+	s *Stream,
+	medi *media.Media,
+	pkt *rtp.Packet,
+	ntp time.Time,
+	pts time.Duration,
+) {
+	sf.writeUnit(s, medi, sf.proc.UnitForRTPPacket(pkt, ntp, pts))
 }

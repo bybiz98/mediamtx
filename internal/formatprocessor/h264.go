@@ -72,8 +72,7 @@ func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
 // UnitH264 is a H264 data unit.
 type UnitH264 struct {
 	BaseUnit
-	PTS time.Duration
-	AU  [][]byte
+	AU [][]byte
 }
 
 type formatProcessorH264 struct {
@@ -269,7 +268,7 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
-			au, pts, err := t.decoder.DecodeUntilMarker(pkt)
+			au, _, err := t.decoder.DecodeUntilMarker(pkt)
 			if err != nil {
 				if err == rtph264.ErrNonStartingPacketAndNoPrevious || err == rtph264.ErrMorePacketsNeeded {
 					return nil
@@ -278,7 +277,6 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 			}
 
 			tunit.AU = t.remuxAccessUnit(au)
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -292,10 +290,11 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 
 	// encode into RTP
 	if len(tunit.AU) != 0 {
-		pkts, err := t.encoder.Encode(tunit.AU, tunit.PTS)
+		pkts, err := t.encoder.Encode(tunit.AU, 0)
 		if err != nil {
 			return err
 		}
+		setTimestamp(pkts, tunit.RTPPackets, t.format.ClockRate(), tunit.PTS)
 		tunit.RTPPackets = pkts
 	} else {
 		tunit.RTPPackets = nil
@@ -304,11 +303,12 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 	return nil
 }
 
-func (t *formatProcessorH264) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+func (t *formatProcessorH264) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &UnitH264{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

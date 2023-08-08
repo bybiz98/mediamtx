@@ -246,16 +246,12 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	}()
 
 	var medias media.Medias
-	videoFirstIDRFound := false
-	var videoStartDTS time.Duration
 	var w *rtmp.Writer
 
 	videoMedia, videoFormat := c.setupVideo(
 		&w,
 		res.stream,
-		ringBuffer,
-		&videoFirstIDRFound,
-		&videoStartDTS)
+		ringBuffer)
 	if videoMedia != nil {
 		medias = append(medias, videoMedia)
 	}
@@ -263,10 +259,7 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	audioMedia, audioFormat := c.setupAudio(
 		&w,
 		res.stream,
-		ringBuffer,
-		videoFormat,
-		&videoFirstIDRFound,
-		&videoStartDTS)
+		ringBuffer)
 	if audioFormat != nil {
 		medias = append(medias, audioMedia)
 	}
@@ -325,15 +318,11 @@ func (c *rtmpConn) setupVideo(
 	w **rtmp.Writer,
 	stream *stream.Stream,
 	ringBuffer *ringbuffer.RingBuffer,
-	videoFirstIDRFound *bool,
-	videoStartDTS *time.Duration,
 ) (*media.Media, formats.Format) {
 	var videoFormatH264 *formats.H264
 	videoMedia := stream.Medias().FindFormat(&videoFormatH264)
 
 	if videoFormatH264 != nil {
-		startPTSFilled := false
-		var startPTS time.Duration
 		var videoDTSExtractor *h264.DTSExtractor
 
 		stream.AddReader(c, videoMedia, videoFormatH264, func(unit formatprocessor.Unit) {
@@ -344,11 +333,7 @@ func (c *rtmpConn) setupVideo(
 					return nil
 				}
 
-				if !startPTSFilled {
-					startPTSFilled = true
-					startPTS = tunit.PTS
-				}
-				pts := tunit.PTS - startPTS
+				pts := tunit.PTS
 
 				idrPresent := false
 				nonIDRPresent := false
@@ -367,12 +352,11 @@ func (c *rtmpConn) setupVideo(
 				var dts time.Duration
 
 				// wait until we receive an IDR
-				if !*videoFirstIDRFound {
+				if videoDTSExtractor == nil {
 					if !idrPresent {
 						return nil
 					}
 
-					*videoFirstIDRFound = true
 					videoDTSExtractor = h264.NewDTSExtractor()
 
 					var err error
@@ -380,10 +364,6 @@ func (c *rtmpConn) setupVideo(
 					if err != nil {
 						return err
 					}
-
-					*videoStartDTS = dts
-					dts = 0
-					pts -= *videoStartDTS
 				} else {
 					if !idrPresent && !nonIDRPresent {
 						return nil
@@ -394,9 +374,6 @@ func (c *rtmpConn) setupVideo(
 					if err != nil {
 						return err
 					}
-
-					dts -= *videoStartDTS
-					pts -= *videoStartDTS
 				}
 
 				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
@@ -414,17 +391,11 @@ func (c *rtmpConn) setupAudio(
 	w **rtmp.Writer,
 	stream *stream.Stream,
 	ringBuffer *ringbuffer.RingBuffer,
-	videoFormat formats.Format,
-	videoFirstIDRFound *bool,
-	videoStartDTS *time.Duration,
 ) (*media.Media, formats.Format) {
 	var audioFormatMPEG4Generic *formats.MPEG4AudioGeneric
 	audioMedia := stream.Medias().FindFormat(&audioFormatMPEG4Generic)
 
 	if audioMedia != nil {
-		startPTSFilled := false
-		var startPTS time.Duration
-
 		stream.AddReader(c, audioMedia, audioFormatMPEG4Generic, func(unit formatprocessor.Unit) {
 			ringBuffer.Push(func() error {
 				tunit := unit.(*formatprocessor.UnitMPEG4AudioGeneric)
@@ -433,22 +404,7 @@ func (c *rtmpConn) setupAudio(
 					return nil
 				}
 
-				if !startPTSFilled {
-					startPTSFilled = true
-					startPTS = tunit.PTS
-				}
-				pts := tunit.PTS - startPTS
-
-				if videoFormat != nil {
-					if !*videoFirstIDRFound {
-						return nil
-					}
-
-					pts -= *videoStartDTS
-					if pts < 0 {
-						return nil
-					}
-				}
+				pts := tunit.PTS
 
 				for i, au := range tunit.AUs {
 					c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
@@ -476,9 +432,6 @@ func (c *rtmpConn) setupAudio(
 		audioFormatMPEG4AudioLATM.Config != nil &&
 		len(audioFormatMPEG4AudioLATM.Config.Programs) == 1 &&
 		len(audioFormatMPEG4AudioLATM.Config.Programs[0].Layers) == 1 {
-		startPTSFilled := false
-		var startPTS time.Duration
-
 		stream.AddReader(c, audioMedia, audioFormatMPEG4AudioLATM, func(unit formatprocessor.Unit) {
 			ringBuffer.Push(func() error {
 				tunit := unit.(*formatprocessor.UnitMPEG4AudioLATM)
@@ -487,22 +440,7 @@ func (c *rtmpConn) setupAudio(
 					return nil
 				}
 
-				if !startPTSFilled {
-					startPTSFilled = true
-					startPTS = tunit.PTS
-				}
-				pts := tunit.PTS - startPTS
-
-				if videoFormat != nil {
-					if !*videoFirstIDRFound {
-						return nil
-					}
-
-					pts -= *videoStartDTS
-					if pts < 0 {
-						return nil
-					}
-				}
+				pts := tunit.PTS
 
 				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 				return (*w).WriteMPEG4Audio(pts, tunit.AU)
@@ -516,29 +454,11 @@ func (c *rtmpConn) setupAudio(
 	audioMedia = stream.Medias().FindFormat(&audioFormatMPEG1)
 
 	if audioMedia != nil {
-		startPTSFilled := false
-		var startPTS time.Duration
-
 		stream.AddReader(c, audioMedia, audioFormatMPEG1, func(unit formatprocessor.Unit) {
 			ringBuffer.Push(func() error {
 				tunit := unit.(*formatprocessor.UnitMPEG1Audio)
 
-				if !startPTSFilled {
-					startPTSFilled = true
-					startPTS = tunit.PTS
-				}
-				pts := tunit.PTS - startPTS
-
-				if videoFormat != nil {
-					if !*videoFirstIDRFound {
-						return nil
-					}
-
-					pts -= *videoStartDTS
-					if pts < 0 {
-						return nil
-					}
-				}
+				pts := tunit.PTS
 
 				for _, frame := range tunit.Frames {
 					var h mpeg1audio.FrameHeader
@@ -625,9 +545,9 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitAV1{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS: pts,
-					TU:  tu,
+					TU: tu,
 				})
 			})
 
@@ -636,9 +556,9 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitH265{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS: pts,
-					AU:  au,
+					AU: au,
 				})
 			})
 
@@ -647,9 +567,9 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitH264{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS: pts,
-					AU:  au,
+					AU: au,
 				})
 			})
 		}
@@ -668,8 +588,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG4AudioGeneric{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS: pts,
 					AUs: [][]byte{au},
 				})
 			})
@@ -679,8 +599,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG1Audio{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS:    pts,
 					Frames: [][]byte{frame},
 				})
 			})

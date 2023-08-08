@@ -402,8 +402,10 @@ func (s *webRTCSession) runPublish() (int, error) {
 		return 0, rres.err
 	}
 
+	timeDecoder := newRTSPTimeDecoder()
+
 	for _, track := range tracks {
-		track.start(rres.stream)
+		track.start(rres.stream, timeDecoder)
 	}
 
 	select {

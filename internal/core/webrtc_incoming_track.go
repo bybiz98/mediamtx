@@ -98,7 +98,7 @@ func newWebRTCIncomingTrack(
 	return t, nil
 }
 
-func (t *webRTCIncomingTrack) start(stream *stream.Stream) {
+func (t *webRTCIncomingTrack) start(stream *stream.Stream, timeDecoder *rtpGlobalTimeDecoder) {
 	go func() {
 		for {
 			pkt, _, err := t.track.ReadRTP()
@@ -111,7 +111,16 @@ func (t *webRTCIncomingTrack) start(stream *stream.Stream) {
 				continue
 			}
 
-			stream.WriteRTPPacket(t.media, t.format, pkt, time.Now())
+			pts, ok := timeDecoder.decode(
+				t.track,
+				int(t.track.Codec().ClockRate),
+				true,
+				pkt)
+			if !ok {
+				continue
+			}
+
+			stream.WriteRTPPacket(t.media, t.format, pkt, time.Now(), pts)
 		}
 	}()
 

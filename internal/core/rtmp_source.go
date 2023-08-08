@@ -133,9 +133,9 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitH264{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS: pts,
-					AU:  au,
+					AU: au,
 				})
 			})
 		}
@@ -154,8 +154,8 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG4AudioGeneric{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS: pts,
 					AUs: [][]byte{au},
 				})
 			})
@@ -165,8 +165,8 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG1Audio{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS:    pts,
 					Frames: [][]byte{frame},
 				})
 			})

@@ -152,13 +152,23 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 
 			defer s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
 
+			timeDec := newRTSPTimeDecoder()
+
 			for _, medi := range medias {
 				for _, forma := range medi.Formats {
 					cmedi := medi
 					cforma := forma
 
 					c.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-						res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now())
+						pts, ok := timeDec.decode(
+							cforma,
+							cforma.ClockRate(),
+							cforma.PTSEqualsDTS(pkt),
+							pkt)
+						if !ok {
+							return
+						}
+						res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
 					})
 				}
 			}

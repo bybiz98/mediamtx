@@ -87,8 +87,14 @@ func (s *Stream) WriteUnit(medi *media.Media, forma formats.Format, data formatp
 }
 
 // WriteRTPPacket writes a RTP packet.
-func (s *Stream) WriteRTPPacket(medi *media.Media, forma formats.Format, pkt *rtp.Packet, ntp time.Time) {
+func (s *Stream) WriteRTPPacket(
+	medi *media.Media,
+	forma formats.Format,
+	pkt *rtp.Packet,
+	ntp time.Time,
+	pts time.Duration,
+) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
-	sf.writeRTPPacket(s, medi, pkt, ntp)
+	sf.writeRTPPacket(s, medi, pkt, ntp, pts)
 }

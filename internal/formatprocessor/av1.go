@@ -14,8 +14,7 @@ import (
 // UnitAV1 is an AV1 data unit.
 type UnitAV1 struct {
 	BaseUnit
-	PTS time.Duration
-	TU  [][]byte
+	TU [][]byte
 }
 
 type formatProcessorAV1 struct {
@@ -82,7 +81,7 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
-			tu, pts, err := t.decoder.DecodeUntilMarker(pkt)
+			tu, _, err := t.decoder.DecodeUntilMarker(pkt)
 			if err != nil {
 				if err == rtpav1.ErrNonStartingPacketAndNoPrevious || err == rtpav1.ErrMorePacketsNeeded {
 					return nil
@@ -91,7 +90,6 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 			}
 
 			tunit.TU = tu
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -99,20 +97,22 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.TU, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.TU, 0)
 	if err != nil {
 		return err
 	}
+	setTimestamp(pkts, tunit.RTPPackets, t.format.ClockRate(), tunit.PTS)
 	tunit.RTPPackets = pkts
 
 	return nil
 }
 
-func (t *formatProcessorAV1) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+func (t *formatProcessorAV1) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &UnitAV1{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

@@ -168,9 +168,9 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS: decodeTime(pts),
-					AU:  au,
+					AU: au,
 				})
 				return nil
 			})
@@ -187,9 +187,9 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS: decodeTime(pts),
-					AU:  au,
+					AU: au,
 				})
 				return nil
 			})
@@ -210,8 +210,8 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS: decodeTime(pts),
 					AUs: aus,
 				})
 				return nil
@@ -230,8 +230,8 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS:     decodeTime(pts),
 					Packets: packets,
 				})
 				return nil
@@ -247,8 +247,8 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG1Audio{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS:    decodeTime(pts),
 					Frames: frames,
 				})
 				return nil

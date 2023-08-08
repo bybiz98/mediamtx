@@ -14,7 +14,6 @@ import (
 // UnitVP8 is a VP8 data unit.
 type UnitVP8 struct {
 	BaseUnit
-	PTS   time.Duration
 	Frame []byte
 }
 
@@ -79,7 +78,7 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 				}
 			}
 
-			frame, pts, err := t.decoder.Decode(pkt)
+			frame, _, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtpvp8.ErrNonStartingPacketAndNoPrevious || err == rtpvp8.ErrMorePacketsNeeded {
 					return nil
@@ -88,7 +87,6 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 			}
 
 			tunit.Frame = frame
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -96,20 +94,22 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.Frame, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.Frame, 0)
 	if err != nil {
 		return err
 	}
+	setTimestamp(pkts, tunit.RTPPackets, t.format.ClockRate(), tunit.PTS)
 	tunit.RTPPackets = pkts
 
 	return nil
 }
 
-func (t *formatProcessorVP8) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+func (t *formatProcessorVP8) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &UnitVP8{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }
