@@ -531,6 +531,9 @@ func (pa *path) doAddReader(req defs.PathAddReaderReq) {
 	}
 
 	if pa.conf.HasOnDemandStaticSource() {
+		if pa.onDemandStaticSourceState == pathOnDemandStateClosing {
+			pa.onDemandStaticSourceStop("error: static source terminated unexceptedly!")
+		}
 		if pa.onDemandStaticSourceState == pathOnDemandStateInitial {
 			pa.onDemandStaticSourceStart(req.AccessRequest.Query)
 		}
@@ -539,6 +542,9 @@ func (pa *path) doAddReader(req defs.PathAddReaderReq) {
 	}
 
 	if pa.conf.HasOnDemandPublisher() {
+		if pa.onDemandPublisherState == pathOnDemandStateClosing {
+			pa.onDemandPublisherStop("error: publisher terminated unexceptedly!")
+		}
 		if pa.onDemandPublisherState == pathOnDemandStateInitial {
 			pa.onDemandPublisherStart(req.AccessRequest.Query)
 		}
